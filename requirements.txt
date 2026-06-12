@@ -1,0 +1,5 @@
+# Runtime: none (stdlib only).
+# Development / test:
+pytest
+# Optional (only for --config YAML support in the CLI):
+PyYAML

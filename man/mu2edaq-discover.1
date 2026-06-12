@@ -1,0 +1,98 @@
+.TH MU2EDAQ\-DISCOVER 1 "2026-06-12" "Mu2e DAQ" "Mu2e DAQ Manual"
+.SH NAME
+mu2edaq\-discover \- query the network for running Mu2e DAQ services
+.SH SYNOPSIS
+.B mu2edaq\-discover
+.RB [ \-\-filter
+.IR KEY=GLOB ]
+.RB [ \-\-timeout
+.IR seconds ]
+.RB [ \-\-retries
+.IR n ]
+.RB [ \-\-group
+.IR addr ]
+.RB [ \-\-port
+.IR port ]
+.RB [ \-\-interface
+.IR ip ]
+.RB [ \-\-config
+.IR file ]
+.RB [ \-\-json | \-\-table ]
+.SH DESCRIPTION
+.B mu2edaq\-discover
+multicasts a DISCOVER query (protocol
+.BR mu2edaq\-discovery/1 ,
+group 239.255.42.99, UDP port 28999) and prints every ANNOUNCE reply:
+service name, application type, host, port, stable instance id, and
+start time.
+Replies are deduplicated by instance id across query retransmissions.
+.SH OPTIONS
+.TP
+.BI \-\-filter " KEY=GLOB"
+Restrict results.
+Keys:
+.BR app ", " name ", " host .
+Values are fnmatch-style globs (e.g.\&
+.BR app=vnc ,
+.BR host=mu2e\-dl\-* ).
+May be repeated; all filters must match.
+.TP
+.BI \-\-timeout " seconds"
+Total time to wait for replies (default 2.0).
+.TP
+.BI \-\-retries " n"
+Number of query transmissions spread across the timeout window (default 2).
+.TP
+.BI \-\-group " addr" ", " \-\-port " port"
+Override the multicast group and UDP port.
+.TP
+.BI \-\-interface " ip"
+Local interface IP to send the multicast on (useful on multi-homed hosts).
+.TP
+.BI \-\-config " file"
+YAML config file with a
+.B discovery:
+section (keys
+.BR group ", " port ", " timeout ).
+Requires PyYAML.
+.TP
+.B \-\-json
+Print results as a JSON array instead of a table.
+.SH CONFIGURATION PRECEDENCE
+Command line options override the environment variables
+.BR MU2EDAQ_DISCOVERY_GROUP ,
+.BR MU2EDAQ_DISCOVERY_PORT ,
+and
+.BR MU2EDAQ_DISCOVERY_TIMEOUT ,
+which override the config file
+.RB ( \-\-config
+or
+.BR MU2EDAQ_DISCOVERY_CONFIG ),
+which overrides built-in defaults.
+.SH EXAMPLES
+List everything on the local network segment:
+.EX
+    mu2edaq\-discover
+.EE
+Only VNC sessions, as JSON:
+.EX
+    mu2edaq\-discover \-\-filter app=vnc \-\-json
+.EE
+From off-site (multicast does not traverse the gateway):
+.EX
+    ssh \-J mu2egateway01.fnal.gov mu2edaq@mu2e\-dl\-01.fnal.gov \\
+        mu2edaq\-discover \-\-json
+.EE
+.SH EXIT STATUS
+0 on success (including zero results); non-zero on invalid arguments or
+protocol errors.
+.SH SEE ALSO
+.BR mu2edaq\-bootstrap (1)
+.PP
+Protocol specification:
+.B doc/PROTOCOL.md
+in the mu2edaq\-discovery repository.
+.SH REPOSITORY
+.UR https://github.com/Mu2e/mu2edaq-discovery
+https://github.com/Mu2e/mu2edaq-discovery
+.UE

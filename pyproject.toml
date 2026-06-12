@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mu2edaq-discovery"
+version = "1.0.0"
+description = "UDP multicast service discovery protocol and library for Mu2e DAQ applications"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "BSD-3-Clause"}
+authors = [{name = "Mu2e DAQ Group"}]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+yaml = ["PyYAML"]
+
+[project.scripts]
+mu2edaq-discover = "mu2edaq_discovery.cli:main"
+
+[project.urls]
+Repository = "https://github.com/Mu2e/mu2edaq-discovery"
+
+[tool.setuptools.packages.find]
+where = ["src"]
