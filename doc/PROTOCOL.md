@@ -90,10 +90,20 @@ Multicast does not traverse the FNAL gateway. Off-site clients run the
 query on a cluster node over ssh (`mu2edaq-discover --json`) and parse
 the output.
 
-## C++ port (future work)
+## C++ port
 
-The protocol is deliberately stdlib-only JSON over plain sockets so a
-C++ implementation (Qt `QUdpSocket` or BSD sockets + a JSON library)
-is mechanical. Until it exists, C++ applications (e.g.
-mu2edaq-trigger-scalers) can run the Python `mu2edaq-discover`
-sidecar / a `Responder` wrapper process from their start scripts.
+A C++17 implementation of the **Responder** lives in [`cpp/`](../cpp). It is
+dependency-free (stdlib + POSIX sockets, with a small internal JSON
+parser/serializer) and is verified to interoperate with the Python
+`mu2edaq-discover` client. C++ applications (e.g. mu2edaq-trigger-scalers)
+embed it directly:
+
+```cpp
+#include <mu2edaq_discovery/Responder.hpp>
+mu2edaq_discovery::Responder r({.name="Trigger Scalers", .app="trigger-scalers",
+                                .port=5557, .scheme="udp"});
+r.start();   // ... r.stop() on shutdown
+```
+
+See [`cpp/README.md`](../cpp/README.md) for build and FetchContent details.
+A Windows (Winsock) backend remains future work.
