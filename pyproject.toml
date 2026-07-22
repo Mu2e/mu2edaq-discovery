@@ -28,3 +28,6 @@ Repository = "https://github.com/Mu2e/mu2edaq-discovery"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+mu2edaq_discovery = ["assets/*.png"]

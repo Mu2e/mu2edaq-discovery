@@ -56,6 +56,12 @@ def window(qapp):
 
 # -- pure helpers ---------------------------------------------------------
 
+def test_application_icon_is_packaged(qapp):
+    # QIcon needs a live QApplication; without the fixture Qt aborts.
+    assert os.path.isfile(gui.APP_ICON_PATH)
+    assert not gui.application_icon().isNull()
+
+
 def test_flatten_expands_meta_and_drops_envelope():
     flat = gui.flatten(RECORDS[0])
     assert flat["meta.user"] == "anorman"
