@@ -4,3 +4,4 @@ discovery:
   group: 239.255.42.99   # administratively-scoped multicast group
   port: 28999            # UDP port (queries and announcements)
   timeout: 2.0           # seconds a query waits for replies
+  interval: 10.0         # GUI auto-probe interval in seconds

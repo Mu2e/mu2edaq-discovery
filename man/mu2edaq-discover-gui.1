@@ -1,0 +1,160 @@
+.TH MU2EDAQ\-DISCOVER\-GUI 1 "2026-07-22" "Mu2e DAQ" "Mu2e DAQ Manual"
+.SH NAME
+mu2edaq\-discover\-gui \- graphical browser for discoverable Mu2e DAQ resources
+.SH SYNOPSIS
+.B mu2edaq\-discover\-gui
+.RB [ \-\-filter
+.IR KEY=GLOB ]
+.RB [ \-\-timeout
+.IR seconds ]
+.RB [ \-\-retries
+.IR n ]
+.RB [ \-\-group
+.IR addr ]
+.RB [ \-\-port
+.IR port ]
+.RB [ \-\-interface
+.IR ip ]
+.RB [ \-\-interval
+.IR seconds ]
+.RB [ \-\-auto ]
+.RB [ \-\-config
+.IR file ]
+.SH DESCRIPTION
+.B mu2edaq\-discover\-gui
+multicasts the same DISCOVER query as
+.BR mu2edaq\-discover (1)
+(protocol
+.BR mu2edaq\-discovery/1 ,
+group 239.255.42.99, UDP port 28999) and displays every ANNOUNCE reply
+in a table.
+.PP
+The table shows all published parameters of each resource. The core
+fields
+.RB ( name ", " app ", " host ", " port ", " scheme ", " version ", "
+.BR pid ", " started ", " id )
+come first; any additional parameters a responder publishes in its
+.B meta
+map appear as further
+.BI meta. key
+columns, discovered at run time.
+.PP
+Rows are grouped by resource class: every instance that shares an
+.B app
+value is collected under a bold class row showing the instance count.
+Classes can be expanded and collapsed individually or with the
+.B Expand All
+and
+.B Collapse All
+toolbar buttons.
+.PP
+Clicking a column header sorts by that field; clicking again reverses
+the order.
+.B port
+and
+.B pid
+sort numerically, everything else sorts case\-insensitively as text.
+Sorting applies to the class rows and to the instances within each
+class. Column order can be rearranged by dragging headers.
+.PP
+Resources that advertise the same
+.IR host : port
+pair are treated as a conflict and drawn in bold red, with a tooltip
+naming the contested endpoint. The status bar reports how many
+conflicts were flagged.
+.PP
+If no resource replies, the table shows a single
+.B "No resources found"
+row and the status bar names the group and port that were probed.
+.SH CONTEXT MENU
+Right\-clicking a resource row offers:
+.TP
+.B Copy Record (Plain Text)
+The whole record as aligned
+.RI "" field " : " value
+lines.
+.TP
+.B Copy Record (JSON)
+The whole record as indented JSON, exactly as it came off the wire.
+.TP
+.BI "Copy \(dq" field "\(dq"
+The value of the single field under the cursor.
+.TP
+.B Copy Field
+A submenu with every published field of that record; choosing one
+copies just that value.
+.PP
+Right\-clicking a class row instead offers
+.B Copy Class (Plain Text)
+and
+.BR "Copy Class (JSON)" ,
+covering every instance of that class.
+.B Copy All Resources
+(text or JSON) and
+.B Probe Again
+are always available.
+.SH OPTIONS
+.TP
+.BI \-\-filter " KEY=GLOB"
+Pre\-fill the toolbar filter. Keys:
+.BR app ", " name ", " host .
+Values are fnmatch\-style globs (e.g.\&
+.BR app=vnc ).
+The filter can be changed in the window at any time; press Enter to
+re\-probe.
+.TP
+.BI \-\-timeout " seconds"
+How long each probe waits for replies. Default 2.0.
+.TP
+.BI \-\-retries " n"
+Number of query transmissions per probe. Default 2.
+.TP
+.BI \-\-group " addr"
+Multicast group. Default 239.255.42.99.
+.TP
+.BI \-\-port " port"
+UDP port. Default 28999.
+.TP
+.BI \-\-interface " ip"
+Local interface address to send the multicast from. Useful on
+multi\-homed DAQ nodes.
+.TP
+.BI \-\-interval " seconds"
+Auto\-probe interval. Default 10.
+.TP
+.B \-\-auto
+Start with auto\-probing enabled (equivalent to ticking
+.B Auto
+in the toolbar).
+.TP
+.BI \-\-config " file"
+YAML configuration file; see
+.BR mu2edaq\-discover (1).
+.SH KEYBOARD
+.TP
+.B F5
+Probe now.
+.SH CONFIGURATION
+Precedence: command line > environment > config file > built\-in
+defaults. Environment variables:
+.BR MU2EDAQ_DISCOVERY_GROUP ,
+.BR MU2EDAQ_DISCOVERY_PORT ,
+.BR MU2EDAQ_DISCOVERY_TIMEOUT ,
+.BR MU2EDAQ_DISCOVERY_INTERVAL ,
+.BR MU2EDAQ_DISCOVERY_CONFIG .
+.SH REQUIREMENTS
+A Qt binding is required:
+.B PyQt6
+(preferred) or
+.BR PySide6 .
+Install with
+.BR "pip install 'mu2edaq-discovery[gui]'" .
+.SH NOTES
+Multicast does not traverse the FNAL gateway. Run the GUI on a cluster
+node (X11 forwarding or a VNC session) to see on\-site resources.
+.SH EXIT STATUS
+Returns the Qt application exit code, 0 on a normal window close.
+.SH SEE ALSO
+.BR mu2edaq\-discover (1)
+.SH AUTHOR
+Mu2e DAQ Group.

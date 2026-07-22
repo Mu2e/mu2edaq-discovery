@@ -1,5 +1,7 @@
-# Runtime: none (stdlib only).
+# Runtime (library + CLI): none (stdlib only).
 # Development / test:
 pytest
-# Optional (only for --config YAML support in the CLI):
+# Optional (only for --config YAML support in the CLI and GUI):
 PyYAML
+# Optional (only for mu2edaq-discover-gui); PySide6 works too:
+PyQt6
