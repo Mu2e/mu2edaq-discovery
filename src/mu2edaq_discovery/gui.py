@@ -40,6 +40,14 @@ CORE_FIELDS = ("name", "app", "host", "port", "scheme", "version",
 NUMERIC_FIELDS = ("port", "pid")
 
 CONFLICT_COLOR = QtGui.QColor(200, 30, 30)
+APP_ICON_PATH = os.path.join(
+    os.path.dirname(__file__), "assets", "mu2edaq-discovery.png"
+)
+
+
+def application_icon():
+    """Return the packaged application icon."""
+    return QtGui.QIcon(APP_ICON_PATH)
 
 
 def flatten(record):
@@ -160,6 +168,7 @@ class DiscoveryWindow(QtWidgets.QMainWindow):
         self.worker = None
 
         self.setWindowTitle("Mu2e DAQ Resource Discovery")
+        self.setWindowIcon(application_icon())
         self.resize(1100, 600)
 
         self._build_toolbar()
@@ -507,6 +516,7 @@ def main(argv=None):
 
     app = QtWidgets.QApplication(sys.argv[:1])
     app.setApplicationName("mu2edaq-discover-gui")
+    app.setWindowIcon(application_icon())
     window = DiscoveryWindow(options)
     if args.filter:
         if "=" not in args.filter:
