@@ -255,6 +255,8 @@ class DiscoveryWindow(QtWidgets.QMainWindow):
         self.worker = DiscoveryWorker(self.options, self._current_filter(), self)
         self.worker.finished_ok.connect(self._on_results)
         self.worker.failed.connect(self._on_error)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.finished.connect(lambda: setattr(self, "worker", None))
         self.worker.start()
 
     def _toggle_auto(self):
