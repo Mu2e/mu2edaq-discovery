@@ -15,9 +15,13 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest"]
 yaml = ["PyYAML"]
+gui = ["PyQt6"]
 
 [project.scripts]
 mu2edaq-discover = "mu2edaq_discovery.cli:main"
+
+[project.gui-scripts]
+mu2edaq-discover-gui = "mu2edaq_discovery.gui:main"
 
 [project.urls]
 Repository = "https://github.com/Mu2e/mu2edaq-discovery"
