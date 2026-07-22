@@ -2,8 +2,8 @@
 # Stop the discovery GUI cleanly (TERM, then KILL if it is still up).
 set -uo pipefail
 
-pattern='mu2edaq_discovery.gui|mu2edaq-discover-gui'
-pids="$(pgrep -f "$pattern" | grep -v "^$$\$" || true)"
+pattern='mu2edaq_discovery\.gui|mu2edaq-discover-gui([[:space:]]|$)'
+pids="$(pgrep -f "$pattern" | grep -v "^${$}$" || true)"
 
 if [ -z "$pids" ]; then
     echo "mu2edaq-discover-gui is not running."
