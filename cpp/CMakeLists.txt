@@ -36,6 +36,16 @@ if(MU2EDAQ_DISCOVERY_BUILD_TESTS)
     add_executable(test_json tests/test_json.cpp)
     target_link_libraries(test_json PRIVATE mu2edaq_discovery)
     add_test(NAME json COMMAND test_json)
+
+    # Regression coverage for issue #4.
+    add_executable(test_invalid_numbers tests/test_invalid_numbers.cpp)
+    target_link_libraries(test_invalid_numbers PRIVATE mu2edaq_discovery)
+    add_test(NAME invalid_json_numbers COMMAND test_invalid_numbers)
+
+    add_executable(test_responder tests/test_responder.cpp)
+    target_link_libraries(test_responder PRIVATE mu2edaq_discovery)
+    add_test(NAME responder COMMAND test_responder)
+    set_tests_properties(responder PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 include(GNUInstallDirs)

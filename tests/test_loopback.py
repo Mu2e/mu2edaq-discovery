@@ -6,6 +6,7 @@ loopback (some CI sandboxes); run locally to validate the full path.
 
 import socket
 import struct
+import time
 
 import pytest
 
@@ -87,3 +88,17 @@ def test_responder_stop_is_clean():
     r.start()
     r.stop()
     assert not r.is_alive()
+
+
+def test_responder_ignores_malformed_filter(responder):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.sendto(
+            b'{"proto":"mu2edaq-discovery/1","type":"DISCOVER",'
+            b'"qid":"bad-filter","filter":[]}',
+            (LOOPBACK, TEST_PORT),
+        )
+    finally:
+        sock.close()
+    time.sleep(0.1)
+    assert responder.is_alive()

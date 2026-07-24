@@ -123,6 +123,16 @@ def test_empty_result_shows_no_resources_row(window):
     assert "No resources responded" in window.statusBar().currentMessage()
 
 
+def test_window_starts_with_auto_refresh_enabled(qapp):
+    options = dict(OPTIONS, interval_on=True)
+    window = gui.DiscoveryWindow(options)
+    try:
+        assert window.timer.isActive()
+        assert window.timer.interval() == 10000
+    finally:
+        window.close()
+
+
 def test_port_column_sorts_numerically(window):
     records = [make_record("x", "a", "vnc", "h1", 9),
                make_record("y", "b", "vnc", "h2", 100)]

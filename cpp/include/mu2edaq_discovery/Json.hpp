@@ -7,6 +7,7 @@
 #define MU2EDAQ_DISCOVERY_JSON_HPP
 
 #include <cstdint>
+#include <cmath>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -278,19 +279,54 @@ private:
 
         Json parse_number() {
             std::size_t start = i_;
-            bool is_double = false;
-            if (!at_end() && (s_[i_] == '-' || s_[i_] == '+')) ++i_;
-            while (!at_end()) {
-                char c = s_[i_];
-                if (c >= '0' && c <= '9') { ++i_; }
-                else if (c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') {
-                    is_double = true; ++i_;
-                } else break;
+            if (!at_end() && s_[i_] == '-') ++i_;
+            if (at_end()) throw JsonError("invalid number");
+
+            if (s_[i_] == '0') {
+                ++i_;
+                if (!at_end() && s_[i_] >= '0' && s_[i_] <= '9')
+                    throw JsonError("invalid number");
+            } else if (s_[i_] >= '1' && s_[i_] <= '9') {
+                do { ++i_; }
+                while (!at_end() && s_[i_] >= '0' && s_[i_] <= '9');
+            } else {
+                throw JsonError("invalid number");
             }
-            if (i_ == start) throw JsonError("invalid number");
+
+            bool is_double = false;
+            if (!at_end() && s_[i_] == '.') {
+                is_double = true;
+                ++i_;
+                if (at_end() || s_[i_] < '0' || s_[i_] > '9')
+                    throw JsonError("invalid number");
+                do { ++i_; }
+                while (!at_end() && s_[i_] >= '0' && s_[i_] <= '9');
+            }
+            if (!at_end() && (s_[i_] == 'e' || s_[i_] == 'E')) {
+                is_double = true;
+                ++i_;
+                if (!at_end() && (s_[i_] == '+' || s_[i_] == '-')) ++i_;
+                if (at_end() || s_[i_] < '0' || s_[i_] > '9')
+                    throw JsonError("invalid number");
+                do { ++i_; }
+                while (!at_end() && s_[i_] >= '0' && s_[i_] <= '9');
+            }
+
             std::string tok = s_.substr(start, i_ - start);
-            if (is_double) return Json(std::stod(tok));
-            return Json(static_cast<std::int64_t>(std::stoll(tok)));
+            try {
+                if (!is_double) {
+                    try {
+                        return Json(static_cast<std::int64_t>(std::stoll(tok)));
+                    } catch (const std::out_of_range&) {
+                        // Preserve valid JSON integers that exceed int64 as doubles.
+                    }
+                }
+                double value = std::stod(tok);
+                if (!std::isfinite(value)) throw JsonError("number out of range");
+                return Json(value);
+            } catch (const std::exception&) {
+                throw JsonError("invalid number");
+            }
         }
     };
 };

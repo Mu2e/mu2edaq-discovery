@@ -51,6 +51,22 @@ def test_decode_rejects_garbage():
         protocol.decode(b'{"proto": "mu2edaq-discovery/1", "type": "NOPE"}')
 
 
+@pytest.mark.parametrize("payload", [
+    b'{"proto":"mu2edaq-discovery/1","type":"ANNOUNCE"}',
+    b'{"proto":"mu2edaq-discovery/1","type":"DISCOVER",'
+    b'"qid":"query-1","filter":[]}',
+    b'{"proto":"mu2edaq-discovery/1","type":"DISCOVER",'
+    b'"qid":1}',
+    b'{"proto":"mu2edaq-discovery/1","type":"ANNOUNCE",'
+    b'"id":"i","name":"n","app":"a","host":"h","port":"1",'
+    b'"scheme":"a","version":"1","pid":1,"started":"now"}',
+])
+def test_decode_rejects_messages_with_invalid_required_fields(payload):
+    """Malformed network messages must fail at the protocol boundary."""
+    with pytest.raises(protocol.ProtocolError):
+        protocol.decode(payload)
+
+
 def test_encode_rejects_oversize():
     a = protocol.build_announce(name="x", app="y", port=1, instance_id="i",
                                 meta={"blob": "z" * 2000})
@@ -70,3 +86,4 @@ def test_filter_matching():
     assert not protocol.matches_filter(a, {"app": "dashboard"})
     assert not protocol.matches_filter(a, {"host": "mu2e-mgr-*"})
     assert not protocol.matches_filter(a, {"bogus": "*"})
+    assert not protocol.matches_filter(a, [])
