@@ -173,8 +173,13 @@ std::string Responder::build_announce(const std::string* qid) const {
 void Responder::run() {
     int send_sock = ::socket(AF_INET, SOCK_DGRAM, 0);
     unsigned char ttl = 4;
-    if (send_sock >= 0)
+    if (send_sock >= 0) {
         ::setsockopt(send_sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+        in_addr interface{};
+        interface.s_addr = ::inet_addr(opt_.bind_interface.c_str());
+        ::setsockopt(send_sock, IPPROTO_IP, IP_MULTICAST_IF,
+                     &interface, sizeof(interface));
+    }
 
     std::mt19937 rng{std::random_device{}()};
     std::uniform_int_distribution<int> jitter_ms(0, 250);
@@ -210,7 +215,7 @@ void Responder::run() {
                                      reinterpret_cast<sockaddr*>(&src), srclen);
                     }
                 }
-            } catch (const JsonError&) {
+            } catch (const std::exception&) {
                 // Ignore malformed datagrams.
             }
         }

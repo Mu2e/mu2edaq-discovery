@@ -166,6 +166,8 @@ class DiscoveryWindow(QtWidgets.QMainWindow):
         self.columns = list(CORE_FIELDS)
         self.records = []
         self.worker = None
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.refresh)
 
         self.setWindowTitle("Mu2e DAQ Resource Discovery")
         self.setWindowIcon(application_icon())
@@ -192,9 +194,6 @@ class DiscoveryWindow(QtWidgets.QMainWindow):
 
         self.status = self.statusBar()
         self.status.showMessage("Ready.")
-
-        self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.refresh)
 
         self._set_empty("Probing for resources...")
         QtCore.QTimer.singleShot(0, self.refresh)
