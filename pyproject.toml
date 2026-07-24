@@ -1,33 +1,9 @@
+# Build configuration only. All package metadata lives in setup.cfg so that
+# this package builds on the AlmaLinux 9 production platform, whose stock venv
+# toolchain is setuptools 53 -- too old for a PEP 621 [project] table, which
+# needs setuptools >= 61. See the header comment in setup.cfg before moving
+# any of it back here.
+
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=40.8.0", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[project]
-name = "mu2edaq-discovery"
-version = "1.0.0"
-description = "UDP multicast service discovery protocol and library for Mu2e DAQ applications"
-readme = "README.md"
-requires-python = ">=3.9"
-license = {text = "BSD-3-Clause"}
-authors = [{name = "Mu2e DAQ Group"}]
-dependencies = []
-
-[project.optional-dependencies]
-dev = ["pytest"]
-yaml = ["PyYAML"]
-gui = ["PyQt6"]
-
-[project.scripts]
-mu2edaq-discover = "mu2edaq_discovery.cli:main"
-
-[project.gui-scripts]
-mu2edaq-discover-gui = "mu2edaq_discovery.gui:main"
-
-[project.urls]
-Repository = "https://github.com/Mu2e/mu2edaq-discovery"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-mu2edaq_discovery = ["assets/*.png"]
