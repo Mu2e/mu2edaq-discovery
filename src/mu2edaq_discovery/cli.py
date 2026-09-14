@@ -2,8 +2,9 @@
 
 Configuration precedence: command line > environment > config file > defaults.
 Environment variables: MU2EDAQ_DISCOVERY_GROUP, MU2EDAQ_DISCOVERY_PORT,
-MU2EDAQ_DISCOVERY_TIMEOUT. Config file (YAML, optional): --config or
-MU2EDAQ_DISCOVERY_CONFIG; PyYAML is only required when a config file is used.
+MU2EDAQ_DISCOVERY_TIMEOUT, MU2EDAQ_DISCOVERY_BROADCAST. Config file (YAML,
+optional): --config or MU2EDAQ_DISCOVERY_CONFIG; PyYAML is only required when
+a config file is used.
 """
 
 import argparse
@@ -12,7 +13,24 @@ import os
 import sys
 
 from . import protocol
-from .client import discover
+from .client import discover, parse_broadcast_setting
+
+
+def resolve_broadcast(no_broadcast, addrs, env, cfg):
+    """Command line > environment > config file > default (limited broadcast).
+
+    Shared by the CLI and the GUI so the two cannot drift.  Returns the list
+    of broadcast destinations, possibly empty.
+    """
+    if no_broadcast:
+        return []
+    if addrs:
+        return parse_broadcast_setting(list(addrs))
+    if env is not None and env != "":
+        return parse_broadcast_setting(env)
+    if cfg is not None:
+        return parse_broadcast_setting(cfg)
+    return parse_broadcast_setting(True)
 
 
 def _load_config(path):
@@ -41,7 +59,8 @@ def _parse_filter(pairs):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="mu2edaq-discover",
-        description="Query the network for mu2edaq services via UDP multicast.",
+        description="Query the network for mu2edaq services via UDP multicast "
+                    "and subnet broadcast.",
     )
     parser.add_argument("--filter", action="append", metavar="KEY=GLOB",
                         help="filter results, e.g. --filter app=vnc (repeatable)")
@@ -52,7 +71,14 @@ def main(argv=None):
     parser.add_argument("--group", default=None, help="multicast group")
     parser.add_argument("--port", type=int, default=None, help="UDP port")
     parser.add_argument("--interface", default=None,
-                        help="local interface IP for multicast")
+                        help="local interface IP to send the multicast and broadcast from")
+    parser.add_argument("--broadcast", action="append", metavar="ADDR", default=None,
+                        help="also broadcast the query to ADDR (repeatable; default "
+                             "%s, the limited broadcast, which reaches the whole "
+                             "local subnet even where IGMP snooping confines "
+                             "multicast to one switch)" % protocol.BROADCAST)
+    parser.add_argument("--no-broadcast", action="store_true",
+                        help="multicast only, as before 1.1.0")
     parser.add_argument("--config", default=os.environ.get("MU2EDAQ_DISCOVERY_CONFIG"),
                         help="YAML config file")
     fmt = parser.add_mutually_exclusive_group()
@@ -67,12 +93,18 @@ def main(argv=None):
                or cfg.get("port") or protocol.PORT)
     timeout = float(args.timeout or os.environ.get("MU2EDAQ_DISCOVERY_TIMEOUT")
                     or cfg.get("timeout") or 2.0)
+    try:
+        broadcast = resolve_broadcast(args.no_broadcast, args.broadcast,
+                                      os.environ.get("MU2EDAQ_DISCOVERY_BROADCAST"),
+                                      cfg.get("broadcast"))
+    except ValueError as exc:
+        sys.exit("error: %s" % exc)
 
     try:
         results = discover(
             filter=_parse_filter(args.filter), timeout=timeout,
             retries=args.retries, group=group, port=port,
-            interface=args.interface,
+            interface=args.interface, broadcast=broadcast,
         )
     except protocol.ProtocolError as exc:
         sys.exit("error: %s" % exc)

@@ -1,9 +1,10 @@
 """Wire protocol for mu2edaq-discovery.
 
-UDP multicast query/response. All messages are single UTF-8 JSON
-datagrams no larger than MAX_DATAGRAM bytes.
+UDP query/response. All messages are single UTF-8 JSON datagrams no larger
+than MAX_DATAGRAM bytes.
 
-Query (client -> multicast GROUP:PORT):
+Query (client -> multicast GROUP:PORT, and also broadcast BROADCAST:PORT;
+a unicast to a specific host:PORT is answered the same way):
     {"proto": "mu2edaq-discovery/1", "type": "DISCOVER",
      "qid": "<uuid4>", "filter": {"app": "vnc"}}
 
@@ -27,6 +28,11 @@ from datetime import datetime, timezone
 PROTO = "mu2edaq-discovery/1"
 GROUP = "239.255.42.99"
 PORT = 28999
+#: The limited broadcast address.  A DISCOVER is sent here as well as to the
+#: group, because IGMP snooping without a querier confines multicast to one
+#: switch while broadcast floods the whole VLAN.  Responders need no change:
+#: a socket bound to 0.0.0.0:PORT receives both.
+BROADCAST = "255.255.255.255"
 MAX_DATAGRAM = 1400
 
 # Filter keys that may appear in a DISCOVER message; values are

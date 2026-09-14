@@ -32,8 +32,64 @@ def test_main_passes_options_filters_and_writes_json(monkeypatch, capsys):
         "group": "239.1.2.3",
         "port": 30001,
         "interface": "127.0.0.1",
+        "broadcast": [protocol.BROADCAST],          # on by default
     }]
     assert json.loads(capsys.readouterr().out) == [RECORD]
+
+
+# -- broadcast option precedence --------------------------------------------
+
+def _broadcast_passed(monkeypatch, argv, env=None, cfg=None):
+    captured = []
+    monkeypatch.setattr(cli, "discover", lambda **kwargs: captured.append(kwargs) or [])
+    monkeypatch.setattr(cli, "_load_config", lambda _path: cfg or {})
+    monkeypatch.delenv("MU2EDAQ_DISCOVERY_BROADCAST", raising=False)
+    if env is not None:
+        monkeypatch.setenv("MU2EDAQ_DISCOVERY_BROADCAST", env)
+    assert cli.main(["--json", "--config", "x.yaml", *argv]) == 0
+    return captured[0]["broadcast"]
+
+
+def test_no_broadcast_flag_gives_multicast_only(monkeypatch):
+    assert _broadcast_passed(monkeypatch, ["--no-broadcast"]) == []
+
+
+def test_broadcast_flag_is_repeatable_and_replaces_the_default(monkeypatch):
+    assert _broadcast_passed(monkeypatch,
+                             ["--broadcast", "131.225.245.255", "--broadcast", "10.226.9.255"]) \
+        == ["131.225.245.255", "10.226.9.255"]
+
+
+def test_broadcast_environment_and_config_precedence(monkeypatch):
+    assert _broadcast_passed(monkeypatch, [], env="off") == []
+    assert _broadcast_passed(monkeypatch, [], env="131.225.245.255, 10.226.9.255") \
+        == ["131.225.245.255", "10.226.9.255"]
+    assert _broadcast_passed(monkeypatch, [], cfg={"broadcast": False}) == []
+    assert _broadcast_passed(monkeypatch, [], cfg={"broadcast": ["10.0.0.255"]}) == ["10.0.0.255"]
+    # Environment beats config; command line beats both.
+    assert _broadcast_passed(monkeypatch, [], env="off", cfg={"broadcast": ["10.0.0.255"]}) == []
+    assert _broadcast_passed(monkeypatch, ["--broadcast", "1.2.3.255"], env="off") == ["1.2.3.255"]
+
+
+@pytest.mark.parametrize("value, expected", [
+    (None, [protocol.BROADCAST]),
+    (True, [protocol.BROADCAST]),
+    (False, []),
+    ("off", []), ("none", []), ("", []),
+    ("on", [protocol.BROADCAST]), ("default", [protocol.BROADCAST]),
+    ("1.2.3.255", ["1.2.3.255"]),
+    ("1.2.3.255,4.5.6.255", ["1.2.3.255", "4.5.6.255"]),
+    (["1.2.3.255", " 4.5.6.255 "], ["1.2.3.255", "4.5.6.255"]),
+])
+def test_parse_broadcast_setting(value, expected):
+    from mu2edaq_discovery import parse_broadcast_setting
+    assert parse_broadcast_setting(value) == expected
+
+
+def test_parse_broadcast_setting_rejects_nonsense():
+    from mu2edaq_discovery import parse_broadcast_setting
+    with pytest.raises(ValueError):
+        parse_broadcast_setting(42)
 
 
 def test_command_line_options_override_environment_and_config(monkeypatch):

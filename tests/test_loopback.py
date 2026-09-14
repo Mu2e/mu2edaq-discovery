@@ -82,6 +82,35 @@ def test_dedup_across_retries(responder):
     assert len(ids) == 1
 
 
+# -- the broadcast leg ------------------------------------------------------
+# On the Mu2e DAQ network IGMP snooping confines multicast to one switch, so
+# the query is also broadcast.  Loopback has no usable broadcast address, so
+# the leg is exercised by pointing it at 127.0.0.1: same socket, same
+# SO_BROADCAST, same send path, same dedup.
+
+def test_broadcast_leg_alone_finds_the_responder(responder):
+    """Multicast to an unused group finds nothing; the broadcast leg does."""
+    results = _scan(group="239.255.42.98", broadcast=[LOOPBACK])
+    assert any(r["id"] == responder.instance_id for r in results)
+
+
+def test_multicast_and_broadcast_answers_are_merged(responder):
+    results = _scan(broadcast=[LOOPBACK], retries=2, timeout=2.0)
+    ids = [r["id"] for r in results if r["id"] == responder.instance_id]
+    assert len(ids) == 1                      # reached both ways, counted once
+
+
+def test_broadcast_can_be_switched_off(responder):
+    results = _scan(group="239.255.42.98", broadcast=False)
+    assert not any(r["id"] == responder.instance_id for r in results)
+
+
+def test_unreachable_broadcast_address_does_not_spoil_the_scan(responder):
+    """A bad broadcast destination is skipped; the multicast leg still works."""
+    results = _scan(broadcast=["192.0.2.255"])   # TEST-NET-1: nobody there
+    assert any(r["id"] == responder.instance_id for r in results)
+
+
 def test_responder_stop_is_clean():
     r = Responder(name="stoppable", app="test", port=1234,
                   listen_port=TEST_PORT, bind_interface=LOOPBACK)

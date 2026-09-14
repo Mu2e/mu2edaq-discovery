@@ -5,3 +5,7 @@ discovery:
   port: 28999            # UDP port (queries and announcements)
   timeout: 2.0           # seconds a query waits for replies
   interval: 10.0         # GUI auto-probe interval in seconds
+  # The query is also broadcast, because IGMP snooping without a querier (as
+  # on the Mu2e DAQ VLAN) confines multicast to one switch while broadcast
+  # floods the whole subnet.  A list of addresses, or false for multicast only.
+  broadcast: [255.255.255.255]

@@ -78,6 +78,23 @@ listeners and provides a migration path for `mu2edaq-heartbeatmonitor`:
 its `SystemRegistry` can add a second listener on 28999 and ingest
 ANNOUNCE messages alongside its port-9999 heartbeats.
 
+## Transport
+
+A DISCOVER may arrive by any of three routes; a responder treats them alike
+and always replies by unicast to the datagram's source address and port:
+
+| Route | Destination | Reaches |
+|---|---|---|
+| Multicast | `239.255.42.99:28999` | Hosts that joined the group, as far as IGMP snooping and multicast routing allow |
+| Broadcast | `255.255.255.255:28999` (or a subnet's broadcast address) | Every host on the sender's subnet, regardless of IGMP snooping |
+| Unicast | `host:28999` | That host |
+
+Clients since 1.1.0 send the multicast and the broadcast together and merge
+replies by `id`. The broadcast route was added because the Mu2e DAQ switches
+run IGMP snooping without a querier, which confines the multicast to the
+sender's own switch. Responders listen on `0.0.0.0:28999` and so need no change
+to receive any of the three.
+
 ## Client behavior
 
 1. Open a UDP socket bound to an ephemeral port.

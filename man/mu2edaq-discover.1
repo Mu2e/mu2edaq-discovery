@@ -1,4 +1,4 @@
-.TH MU2EDAQ\-DISCOVER 1 "2026-06-12" "Mu2e DAQ" "Mu2e DAQ Manual"
+.TH MU2EDAQ\-DISCOVER 1 "2026-09-14" "Mu2e DAQ" "Mu2e DAQ Manual"
 .SH NAME
 mu2edaq\-discover \- query the network for running Mu2e DAQ services
 .SH SYNOPSIS
@@ -15,17 +15,28 @@ mu2edaq\-discover \- query the network for running Mu2e DAQ services
 .IR port ]
 .RB [ \-\-interface
 .IR ip ]
+.RB [ \-\-broadcast
+.IR addr ]
+.RB [ \-\-no\-broadcast ]
 .RB [ \-\-config
 .IR file ]
 .RB [ \-\-json | \-\-table ]
 .SH DESCRIPTION
 .B mu2edaq\-discover
-multicasts a DISCOVER query (protocol
+sends a DISCOVER query (protocol
 .BR mu2edaq\-discovery/1 ,
-group 239.255.42.99, UDP port 28999) and prints every ANNOUNCE reply:
-service name, application type, host, port, stable instance id, and
-start time.
-Replies are deduplicated by instance id across query retransmissions.
+UDP port 28999) both by multicast to group 239.255.42.99 and by broadcast to
+the local subnet, and prints every ANNOUNCE reply: service name, application
+type, host, port, stable instance id, and start time.
+Replies are deduplicated by instance id across the two transports and across
+query retransmissions, so a host reached both ways is listed once.
+.PP
+The broadcast leg exists because the Mu2e DAQ switches run IGMP snooping
+without a querier: a multicast query is then forwarded only within the switch
+the client sits on, so a scan from one node finds only its own switch's
+neighbours, while a broadcast floods the whole VLAN.
+Broadcast does not cross a router, so off the subnet it adds nothing.
+Responders need no change; they already listen on every address.
 .SH OPTIONS
 .TP
 .BI \-\-filter " KEY=GLOB"
@@ -47,13 +58,28 @@ Number of query transmissions spread across the timeout window (default 2).
 Override the multicast group and UDP port.
 .TP
 .BI \-\-interface " ip"
-Local interface IP to send the multicast on (useful on multi-homed hosts).
+Local interface IP to send the multicast and broadcast from (useful on
+multi-homed hosts; it decides which subnet the broadcast leaves on).
+.TP
+.BI \-\-broadcast " addr"
+Broadcast the query to
+.I addr
+as well as multicasting it.
+May be repeated, for example once per subnet of a multi-homed host.
+Default: 255.255.255.255, the limited broadcast, which reaches the local
+subnet.
+.TP
+.B \-\-no\-broadcast
+Multicast only, the behaviour before version 1.1.0.
 .TP
 .BI \-\-config " file"
 YAML config file with a
 .B discovery:
 section (keys
-.BR group ", " port ", " timeout ).
+.BR group ", " port ", " timeout ", " broadcast ;
+the last a list of addresses, or
+.B false
+for multicast only).
 Requires PyYAML.
 .TP
 .B \-\-json
@@ -62,8 +88,12 @@ Print results as a JSON array instead of a table.
 Command line options override the environment variables
 .BR MU2EDAQ_DISCOVERY_GROUP ,
 .BR MU2EDAQ_DISCOVERY_PORT ,
-and
 .BR MU2EDAQ_DISCOVERY_TIMEOUT ,
+and
+.B MU2EDAQ_DISCOVERY_BROADCAST
+(addresses separated by commas or spaces, or
+.B off
+for multicast only),
 which override the config file
 .RB ( \-\-config
 or
@@ -77,6 +107,14 @@ List everything on the local network segment:
 Only VNC sessions, as JSON:
 .EX
     mu2edaq\-discover \-\-filter app=vnc \-\-json
+.EE
+On a node with a public and a private DAQ interface, reach both subnets:
+.EX
+    mu2edaq\-discover \-\-broadcast 131.225.245.255 \-\-broadcast 10.226.9.255
+.EE
+Multicast only, to see what IGMP snooping is hiding:
+.EX
+    mu2edaq\-discover \-\-no\-broadcast
 .EE
 From off-site (multicast does not traverse the gateway):
 .EX

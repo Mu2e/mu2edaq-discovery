@@ -28,6 +28,7 @@ except ImportError:  # pragma: no cover - exercised only on PySide-only hosts
         )
 
 from . import protocol
+from .cli import resolve_broadcast
 from .client import discover
 
 # Fields every ANNOUNCE carries, in display order. Anything else the
@@ -150,6 +151,7 @@ class DiscoveryWorker(QtCore.QThread):
                 group=self.options["group"],
                 port=self.options["port"],
                 interface=self.options["interface"],
+                broadcast=self.options.get("broadcast", True),
             )
         except Exception as exc:  # network/protocol errors reach the status bar
             self.failed.emit(str(exc))
@@ -489,7 +491,12 @@ def main(argv=None):
     parser.add_argument("--group", default=None, help="multicast group")
     parser.add_argument("--port", type=int, default=None, help="UDP port")
     parser.add_argument("--interface", default=None,
-                        help="local interface IP for multicast")
+                        help="local interface IP to send the multicast and broadcast from")
+    parser.add_argument("--broadcast", action="append", metavar="ADDR", default=None,
+                        help="also broadcast the query to ADDR (repeatable; default "
+                             "%s, the limited broadcast)" % protocol.BROADCAST)
+    parser.add_argument("--no-broadcast", action="store_true",
+                        help="multicast only, as before 1.1.0")
     parser.add_argument("--interval", type=float, default=None,
                         help="auto-probe interval in seconds (default 10)")
     parser.add_argument("--auto", action="store_true",
@@ -512,6 +519,12 @@ def main(argv=None):
                           or cfg.get("interval") or 10.0),
         "interval_on": args.auto,
     }
+    try:
+        options["broadcast"] = resolve_broadcast(
+            args.no_broadcast, args.broadcast,
+            os.environ.get("MU2EDAQ_DISCOVERY_BROADCAST"), cfg.get("broadcast"))
+    except ValueError as exc:
+        sys.exit("error: %s" % exc)
 
     app = QtWidgets.QApplication(sys.argv[:1])
     app.setApplicationName("mu2edaq-discover-gui")

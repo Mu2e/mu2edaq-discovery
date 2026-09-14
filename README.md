@@ -1,8 +1,8 @@
 # mu2edaq-discovery
 
-UDP multicast service discovery for Mu2e DAQ applications. Provides a
-tiny, stdlib-only Python library and a CLI so operators can see which
-DAQ applications are running, where (node and port), and who they are.
+UDP multicast and broadcast service discovery for Mu2e DAQ applications.
+Provides a tiny, stdlib-only Python library and a CLI so operators can see
+which DAQ applications are running, where (node and port), and who they are.
 
 See [doc/PROTOCOL.md](doc/PROTOCOL.md) for the wire protocol
 (`mu2edaq-discovery/1`, multicast `239.255.42.99:28999`, JSON
@@ -40,6 +40,8 @@ so discovery never advertises a port that isn't accepting connections.
 ```python
 from mu2edaq_discovery import discover
 services = discover(filter={"app": "vnc"}, timeout=2.0)
+# broadcast=True (default) also broadcasts to 255.255.255.255;
+# broadcast=["131.225.245.255"] names the subnets; broadcast=False is multicast only.
 ```
 
 Or from the shell:
@@ -52,7 +54,8 @@ mu2edaq-discover --json | python3 -m json.tool
 
 Configuration precedence: command line > environment
 (`MU2EDAQ_DISCOVERY_GROUP`, `MU2EDAQ_DISCOVERY_PORT`,
-`MU2EDAQ_DISCOVERY_TIMEOUT`, `MU2EDAQ_DISCOVERY_INTERVAL`) > config file
+`MU2EDAQ_DISCOVERY_TIMEOUT`, `MU2EDAQ_DISCOVERY_INTERVAL`,
+`MU2EDAQ_DISCOVERY_BROADCAST`) > config file
 (`--config` / `MU2EDAQ_DISCOVERY_CONFIG`, see `config/discovery.yaml`) >
 defaults.
 
@@ -88,9 +91,27 @@ The GUI takes the same options and configuration precedence as the CLI;
 see `man ./man/mu2edaq-discover-gui.1`. Stop a running instance with
 `./stop-mu2edaq-discover-gui.sh`.
 
-Note: multicast does not traverse the FNAL gateway. From off-site, run
-the query on a cluster node: `ssh -J mu2egateway01.fnal.gov <host>
-mu2edaq-discover --json`.
+### Why the query is broadcast as well as multicast
+
+Measured on the DAQ VLAN in September 2026: every node on one `/24`, every
+responder up, yet a multicast scan from `mu2e-mgr-01` found only itself, one
+from `mu2e-trk-03` found only the tracker, calorimeter and CRV nodes on its own
+switch, and one from `mu2e-trk-11` found a third island. The switches run IGMP
+snooping with no querier, so each forwards the group only to ports it has seen
+join, and membership never propagates between switches. Broadcast is not
+subject to snooping and floods the whole VLAN, and a unicast datagram to any
+node's port 28999 is answered at once.
+
+Since 1.1.0 `discover()` therefore sends the same DISCOVER to the multicast
+group *and* to the subnet broadcast (`255.255.255.255` by default), merging
+replies by responder id. Responders needed no change. `--broadcast ADDR`
+(repeatable) chooses other addresses, for instance one per subnet of a
+multi-homed node; `--no-broadcast` restores multicast-only. The network fix is
+an IGMP querier on the VLAN, which would let plain multicast work everywhere.
+
+Note: neither multicast nor broadcast traverses a router or the FNAL gateway.
+From off-site, run the query on a cluster node: `ssh -J mu2egateway01.fnal.gov
+<host> mu2edaq-discover --json`.
 
 ## Tests
 

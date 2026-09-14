@@ -116,8 +116,19 @@ Multicast group. Default 239.255.42.99.
 UDP port. Default 28999.
 .TP
 .BI \-\-interface " ip"
-Local interface address to send the multicast from. Useful on
+Local interface address to send the multicast and broadcast from. Useful on
 multi\-homed DAQ nodes.
+.TP
+.BI \-\-broadcast " addr"
+Also broadcast each probe to
+.IR addr ;
+repeatable. Default 255.255.255.255, the local subnet. This is what lets the
+browser see nodes on other switches, where IGMP snooping without a querier
+stops the multicast; see
+.BR mu2edaq\-discover (1).
+.TP
+.B \-\-no\-broadcast
+Multicast only, as before version 1.1.0.
 .TP
 .BI \-\-interval " seconds"
 Auto\-probe interval. Default 10.
