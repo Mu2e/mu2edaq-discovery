@@ -123,6 +123,24 @@ def test_empty_result_shows_no_resources_row(window):
     assert "No resources responded" in window.statusBar().currentMessage()
 
 
+def test_status_bar_names_the_transports_used(qapp):
+    """A probe that finds only the local node is explained at a glance by
+    'multicast only' -- that is exactly what IGMP snooping produces."""
+    with_bcast = gui.DiscoveryWindow(dict(OPTIONS, broadcast=["255.255.255.255", "10.226.9.255"]))
+    without = gui.DiscoveryWindow(dict(OPTIONS, broadcast=[]))
+    legacy = gui.DiscoveryWindow(dict(OPTIONS))          # options from an older caller
+    try:
+        assert with_bcast._targets() == \
+            "239.255.42.99:28999 + broadcast 255.255.255.255, 10.226.9.255"
+        assert without._targets() == "239.255.42.99:28999 (multicast only)"
+        assert legacy._targets() == "239.255.42.99:28999 (multicast only)"
+        without.populate([])
+        assert "multicast only" in without.statusBar().currentMessage()
+    finally:
+        for w in (with_bcast, without, legacy):
+            w.close()
+
+
 def test_window_starts_with_auto_refresh_enabled(qapp):
     options = dict(OPTIONS, interval_on=True)
     window = gui.DiscoveryWindow(options)

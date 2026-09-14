@@ -254,14 +254,25 @@ class DiscoveryWindow(QtWidgets.QMainWindow):
             return None
         return {self.filter_key.currentText(): value}
 
+    def _targets(self):
+        """'239.255.42.99:28999 + broadcast 255.255.255.255' for the status bar.
+
+        Saying which transports were used matters here: on a network where
+        IGMP snooping confines multicast to one switch, a probe that shows
+        only the local node is explained by 'multicast only' at a glance.
+        """
+        group = "%s:%d" % (self.options["group"], self.options["port"])
+        addrs = self.options.get("broadcast") or []
+        if not addrs:
+            return group + " (multicast only)"
+        return group + " + broadcast " + ", ".join(addrs)
+
     def refresh(self):
         if self.worker is not None and self.worker.isRunning():
             return
         self.refresh_action.setEnabled(False)
         self.status.showMessage(
-            "Probing %s:%d for %.1f s..." % (self.options["group"],
-                                             self.options["port"],
-                                             self.options["timeout"]))
+            "Probing %s for %.1f s..." % (self._targets(), self.options["timeout"]))
         self.worker = DiscoveryWorker(self.options, self._current_filter(), self)
         self.worker.finished_ok.connect(self._on_results)
         self.worker.failed.connect(self._on_error)
@@ -301,9 +312,7 @@ class DiscoveryWindow(QtWidgets.QMainWindow):
             self.columns = list(CORE_FIELDS)
             self._reset_header()
             self._set_empty("No resources found")
-            self.status.showMessage(
-                "No resources responded on %s:%d." %
-                (self.options["group"], self.options["port"]))
+            self.status.showMessage("No resources responded on %s." % self._targets())
             return
 
         self.columns = columns_for(records)
