@@ -1,4 +1,4 @@
-.TH MU2EDAQ\-DISCOVER\-GUI 1 "2026-07-22" "Mu2e DAQ" "Mu2e DAQ Manual"
+.TH MU2EDAQ\-DISCOVER\-GUI 1 "2026-09-30" "mu2edaq-discovery 1.1.0" "Mu2e DAQ Manual"
 .SH NAME
 mu2edaq\-discover\-gui \- graphical browser for discoverable Mu2e DAQ resources
 .SH SYNOPSIS
@@ -15,6 +15,9 @@ mu2edaq\-discover\-gui \- graphical browser for discoverable Mu2e DAQ resources
 .IR port ]
 .RB [ \-\-interface
 .IR ip ]
+.RB [ \-\-broadcast
+.IR addr ]
+.RB [ \-\-no\-broadcast ]
 .RB [ \-\-interval
 .IR seconds ]
 .RB [ \-\-auto ]
@@ -22,12 +25,15 @@ mu2edaq\-discover\-gui \- graphical browser for discoverable Mu2e DAQ resources
 .IR file ]
 .SH DESCRIPTION
 .B mu2edaq\-discover\-gui
-multicasts the same DISCOVER query as
+sends the same DISCOVER query as
 .BR mu2edaq\-discover (1)
 (protocol
 .BR mu2edaq\-discovery/1 ,
-group 239.255.42.99, UDP port 28999) and displays every ANNOUNCE reply
-in a table.
+group 239.255.42.99, UDP port 28999), by multicast and by subnet broadcast
+together, and displays every ANNOUNCE reply in a table.
+The status bar names the transports each probe used, so a scan that shows only
+the local switch's nodes is recognisable as multicast confined by IGMP
+snooping.
 .PP
 The table shows all published parameters of each resource. The core
 fields
@@ -145,27 +151,99 @@ YAML configuration file; see
 .TP
 .B F5
 Probe now.
-.SH CONFIGURATION
-Precedence: command line > environment > config file > built\-in
-defaults. Environment variables:
-.BR MU2EDAQ_DISCOVERY_GROUP ,
-.BR MU2EDAQ_DISCOVERY_PORT ,
-.BR MU2EDAQ_DISCOVERY_TIMEOUT ,
-.BR MU2EDAQ_DISCOVERY_INTERVAL ,
-.BR MU2EDAQ_DISCOVERY_CONFIG .
-.SH REQUIREMENTS
+.SH FILES
+.TP
+.I config/discovery.yaml
+The packaged example configuration.
+Read only when named by
+.B \-\-config
+or
+.BR MU2EDAQ_DISCOVERY_CONFIG ;
+there is no fixed default path.
+The
+.B interval
+key is used only by this command.
+.TP
+.I src/mu2edaq_discovery/assets/mu2edaq-discovery.png
+The packaged window and application icon.
+.TP
+.I ./start-mu2edaq-discover-gui.sh
+Creates or updates
+.I venv/
+with the
+.B gui
+extra and launches the GUI; arguments are passed straight through.
+.TP
+.I ./stop-mu2edaq-discover-gui.sh
+Sends SIGTERM, then SIGKILL after five seconds, to any running instance.
+.SH ENVIRONMENT
+Command line options override these; they in turn override the config file,
+which overrides the built\-in defaults.
+.TP
+.B MU2EDAQ_DISCOVERY_GROUP
+Multicast group.
+Default 239.255.42.99.
+.TP
+.B MU2EDAQ_DISCOVERY_PORT
+UDP port.
+Default 28999.
+.TP
+.B MU2EDAQ_DISCOVERY_TIMEOUT
+Seconds each probe waits for replies.
+Default 2.0.
+.TP
+.B MU2EDAQ_DISCOVERY_BROADCAST
+Broadcast destinations, spelled as for
+.BR mu2edaq\-discover (1).
+.TP
+.B MU2EDAQ_DISCOVERY_INTERVAL
+Auto\-probe interval in seconds.
+Default 10.
+.TP
+.B MU2EDAQ_DISCOVERY_CONFIG
+Default value of
+.BR \-\-config .
+.SH EXIT STATUS
+.TP
+.B 0
+Normal window close.
+.TP
+.B 1
+No Qt binding installed, an unsupported
+.B \-\-filter
+key, a config file that needs PyYAML when PyYAML is absent, or an invalid
+broadcast setting.
+.TP
+.B 2
+Invalid command line, from the argument parser.
+.SH EXAMPLES
+Browse everything, re\-probing every 15 seconds:
+.EX
+    mu2edaq\-discover\-gui \-\-auto \-\-interval 15
+.EE
+Start filtered to the VNC sessions:
+.EX
+    mu2edaq\-discover\-gui \-\-filter app=vnc
+.EE
+On a multi\-homed node, probe both DAQ subnets:
+.EX
+    mu2edaq\-discover\-gui \-\-broadcast 131.225.245.255 \-\-broadcast 10.226.9.255
+.EE
+.SH NOTES
 A Qt binding is required:
 .B PyQt6
 (preferred) or
-.BR PySide6 .
-Install with
+.BR PySide6 ;
+install with
 .BR "pip install 'mu2edaq-discovery[gui]'" .
-.SH NOTES
-Multicast does not traverse the FNAL gateway. Run the GUI on a cluster
-node (X11 forwarding or a VNC session) to see on\-site resources.
-.SH EXIT STATUS
-Returns the Qt application exit code, 0 on a normal window close.
+.PP
+Neither multicast nor broadcast traverses the FNAL gateway.
+Run the GUI on a cluster node, over X11 forwarding or in a VNC session, to see
+on\-site resources.
 .SH SEE ALSO
-.BR mu2edaq\-discover (1)
+.BR mu2edaq\-discover (1),
+.BR mu2edaq_discovery (3),
+.BR discovery.yaml (5),
+.BR mu2edaq\-discovery (7)
 .SH AUTHOR
 Mu2e DAQ Group.

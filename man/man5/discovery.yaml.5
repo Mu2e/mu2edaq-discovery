@@ -1,0 +1,164 @@
+.TH DISCOVERY.YAML 5 "2026-09-30" "mu2edaq-discovery 1.1.0" "Mu2e DAQ Manual"
+.SH NAME
+discovery.yaml \- configuration file for the mu2edaq-discovery tools
+.SH SYNOPSIS
+.EX
+discovery:
+  group: 239.255.42.99
+  port: 28999
+  timeout: 2.0
+  interval: 10.0
+  broadcast: [255.255.255.255]
+.EE
+.SH DESCRIPTION
+A YAML file read by
+.BR mu2edaq\-discover (1)
+and
+.BR mu2edaq\-discover\-gui (1)
+when it is named by
+.B \-\-config
+or by
+.BR MU2EDAQ_DISCOVERY_CONFIG .
+.B There is no default path:
+if neither is given, no file is read at all and the built\-in defaults apply.
+The packaged copy at
+.I config/discovery.yaml
+is an example, not an implicitly\-loaded default.
+.PP
+Reading a config file requires
+.BR PyYAML ,
+which is otherwise not a dependency of this package.
+If PyYAML is missing and
+.B \-\-config
+was given, the tool exits with an error rather than falling back.
+.PP
+Settings live under a top\-level
+.B discovery:
+mapping.
+A file with no such key is accepted and the whole document is used as the
+mapping, which is what lets a shared site config nest this section under a
+larger tree.
+.PP
+Precedence is command line, then environment, then this file, then the
+built\-in defaults.
+Only the keys present are applied; anything unrecognised is ignored.
+.SH OPTIONS
+.TP
+.B group
+Multicast group address.
+Default
+.BR 239.255.42.99 ,
+in the administratively scoped
+.B 239.0.0.0/8
+range.
+Changing it partitions the network: a client and a responder on different
+groups cannot see each other over multicast, though the broadcast leg still
+connects them.
+.TP
+.B port
+UDP port for both queries and announcements.
+Default
+.BR 28999 .
+Every responder in the deployment must agree.
+.TP
+.B timeout
+Seconds a query waits for replies, as a float.
+Default
+.BR 2.0 .
+.TP
+.B interval
+Auto\-probe interval in seconds for
+.BR mu2edaq\-discover\-gui (1).
+Default
+.BR 10.0 .
+Ignored by
+.BR mu2edaq\-discover (1).
+.TP
+.B broadcast
+Where to send the broadcast leg of a query, in addition to the multicast.
+A YAML list of addresses, a single string, or a boolean.
+.B false
+(or
+.BR off ", " no ", " none )
+means multicast only;
+.B true
+(or
+.BR on ", " yes ", " default )
+means the limited broadcast
+.BR 255.255.255.255 .
+A string may also hold several addresses separated by commas or whitespace.
+Default: the limited broadcast.
+.PP
+Responders embedded in applications do not read this file.
+Their group, port and interface come from their own package's configuration
+and are passed to the
+.B Responder
+constructor.
+.SH FILES
+.TP
+.I config/discovery.yaml
+The packaged example, carrying the defaults above.
+.TP
+.I mu2edaq-config/config-main/mu2edaq-discovery/discovery.yaml
+The deployed copy in the site configuration submodule.
+It omits
+.B broadcast
+and, in some tagged configurations, also
+.BR interval ;
+the built\-in defaults then apply to those keys.
+.SH ENVIRONMENT
+.TP
+.B MU2EDAQ_DISCOVERY_CONFIG
+Path used when
+.B \-\-config
+is not given.
+.TP
+.B MU2EDAQ_DISCOVERY_GROUP
+.TQ
+.B MU2EDAQ_DISCOVERY_PORT
+.TQ
+.B MU2EDAQ_DISCOVERY_TIMEOUT
+.TQ
+.B MU2EDAQ_DISCOVERY_INTERVAL
+.TQ
+.B MU2EDAQ_DISCOVERY_BROADCAST
+Override the corresponding keys in this file.
+.SH EXAMPLES
+A multi\-homed node that must reach two DAQ subnets:
+.EX
+    discovery:
+      port: 28999
+      timeout: 3.0
+      broadcast:
+        - 131.225.245.255
+        - 10.226.9.255
+.EE
+Multicast only, for diagnosing what IGMP snooping is hiding:
+.EX
+    discovery:
+      broadcast: false
+.EE
+Using it:
+.EX
+    mu2edaq-discover --config config/discovery.yaml
+    MU2EDAQ_DISCOVERY_CONFIG=/etc/mu2edaq/discovery.yaml mu2edaq-discover
+.EE
+.SH NOTES
+A
+.B timeout
+or
+.B port
+of
+.B 0
+in this file is treated as absent, because the tools resolve each setting with
+an
+.B or
+chain in which zero is falsy.
+The built\-in default applies instead.
+.SH SEE ALSO
+.BR mu2edaq\-discover (1),
+.BR mu2edaq\-discover\-gui (1),
+.BR mu2edaq_discovery (3),
+.BR mu2edaq\-discovery (7)
+.SH AUTHOR
+Mu2e DAQ Group.

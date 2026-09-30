@@ -1,0 +1,233 @@
+.TH MU2EDAQ\-DISCOVERY 7 "2026-09-30" "mu2edaq-discovery 1.1.0" "Mu2e DAQ Manual"
+.SH NAME
+mu2edaq\-discovery \- UDP service discovery protocol for the Mu2e DAQ suite
+.SH SYNOPSIS
+.EX
+Protocol identifier   mu2edaq-discovery/1
+Multicast group       239.255.42.99
+Broadcast             255.255.255.255 (or a subnet broadcast address)
+UDP port              28999
+Encoding              one UTF-8 JSON object per datagram
+Maximum datagram      1400 bytes
+Message types         DISCOVER (query), ANNOUNCE (response/unsolicited)
+.EE
+.SH DESCRIPTION
+.B mu2edaq\-discovery
+is the substrate the whole Mu2e DAQ Python suite uses to answer "what is
+running, on which node, on which port".
+A service embeds a responder and becomes findable; an operator runs
+.BR mu2edaq\-discover (1)
+or
+.BR mu2edaq\-discover\-gui (1)
+and sees it.
+.PP
+The design is deliberately minimal: no registry, no broker, no persistent
+state, no authentication.
+Every responder is authoritative only for itself, and a scan is a snapshot of
+who answered within the timeout.
+Nothing is remembered between scans, so a service that dies simply stops
+appearing.
+.SH PROTOCOL
+.SS DISCOVER
+Sent by a client, to the multicast group and to the broadcast address
+together, or unicast to one host.
+.EX
+    {"proto": "mu2edaq-discovery/1",
+     "type":  "DISCOVER",
+     "qid":   "9f1c2e34-5d6a-4b7c-8e9f-0a1b2c3d4e5f",
+     "filter": {"app": "vnc"}}
+.EE
+.TP
+.B qid
+Required string, a UUID4 generated per query.
+Responders echo it so a client can discard replies to an earlier query.
+.TP
+.B filter
+Optional object.
+Keys may be
+.BR app ", " name " or " host
+only; values are
+.BR fnmatch (3)\-style
+globs matched against the corresponding ANNOUNCE fields.
+All named keys must match.
+A responder that does not match must not reply.
+An absent or empty filter matches everything.
+.SS ANNOUNCE
+Sent unicast back to the DISCOVER's source address and port, after a uniform
+random delay of 0 to 250 ms that prevents a reply storm when a whole cluster
+answers at once.
+.EX
+    {"proto":   "mu2edaq-discovery/1",
+     "type":    "ANNOUNCE",
+     "qid":     "9f1c2e34-5d6a-4b7c-8e9f-0a1b2c3d4e5f",
+     "id":      "c0ffee12-3456-4789-abcd-ef0123456789",
+     "name":    "VNC mu2e-dl-01 :1 (daq-main)",
+     "app":     "vnc",
+     "host":    "mu2e-dl-01.fnal.gov",
+     "port":    5901,
+     "scheme":  "vnc",
+     "version": "1.0",
+     "pid":     12345,
+     "started": "2026-06-12T15:04:05Z",
+     "meta":    {"display": ":1", "geometry": "2560x1440"}}
+.EE
+.TP
+.B id
+Required string, a UUID4 generated once per responder object.
+It is the deduplication key: a client that receives the same
+.B id
+by multicast, by broadcast and on a retransmission counts one service.
+.TP
+.B port ", " pid
+Required JSON integers.
+A string here is a protocol error; booleans are rejected too.
+.TP
+.B meta
+Optional object whose keys and values must all be strings.
+Consumers render it as
+.BI meta. key
+columns, so a responder can publish new detail without any client change.
+.TP
+.B qid
+Present on a solicited reply, absent on an unsolicited periodic announcement.
+.PP
+A responder configured with a non\-zero announce interval also multicasts the
+same ANNOUNCE, without
+.BR qid ,
+to the group at that interval, for passive listeners.
+.SS Transport
+A DISCOVER may arrive three ways and a responder treats them alike, always
+replying unicast to the datagram's source.
+.TP
+.B Multicast
+.BR 239.255.42.99:28999 .
+Reaches hosts that joined the group, as far as IGMP snooping and multicast
+routing allow.
+.TP
+.B Broadcast
+.BR 255.255.255.255:28999 ,
+or a subnet's own broadcast address.
+Reaches every host on the sender's subnet, and is not subject to IGMP
+snooping.
+.TP
+.B Unicast
+.IB host :28999 .
+Reaches that host.
+.PP
+Since version 1.1.0 clients send the multicast and the broadcast together and
+merge the replies by
+.BR id .
+The broadcast leg was added because the Mu2e DAQ switches run IGMP snooping
+with no querier: each switch forwards the group only to ports it has seen
+join, membership never propagates between switches, and a multicast scan
+therefore sees only the scanner's own switch.
+Responders needed no change, since they bind
+.BR 0.0.0.0 .
+The network\-side remedy is an IGMP querier on the VLAN.
+.PP
+Neither multicast nor broadcast crosses a router or the FNAL gateway.
+From off site, run the scan on a cluster node over ssh.
+.SS Size limit
+A datagram must not exceed 1400 bytes, chosen to fit one Ethernet MTU with
+headers and so never fragment.
+The limit is on the serialized message, so a large
+.B meta
+map or a long
+.B name
+can cross it at runtime.
+Both encode and decode enforce it in the Python implementation; the C++
+responder does not check the ANNOUNCE it builds.
+.SS Address family
+IPv4 only, throughout.
+The sockets are
+.BR AF_INET ,
+the group membership uses
+.BR ip_mreq ,
+and there is no IPv6 group or dual\-stack path in either implementation.
+.SH IMPLEMENTATIONS
+.TP
+.B Python
+.BR mu2edaq_discovery (3).
+Client and responder, stdlib only, Python 3.9.
+Embedded by the Python services in the suite.
+.TP
+.B C++
+.BR libmu2edaq_discovery (3).
+Responder only, C++17 and POSIX sockets, consumed by CMake
+.BR FetchContent .
+.TP
+.B Embedded fallback
+.B mu2edaq\-controlroom\-setup
+ships
+.I server/vnc-discovery-responder.py
+with a hand\-copied responder used when the package is not importable, so a
+VNC session is discoverable on a host with no virtualenv.
+It is a fourth copy of the wire format and must be kept in step by hand.
+.SH FILES
+.TP
+.I doc/PROTOCOL.md
+The protocol specification this page summarises.
+.TP
+.I config/discovery.yaml
+Example configuration; see
+.BR discovery.yaml (5).
+.SH ENVIRONMENT
+.TP
+.B MU2EDAQ_DISCOVERY_GROUP
+.TQ
+.B MU2EDAQ_DISCOVERY_PORT
+.TQ
+.B MU2EDAQ_DISCOVERY_TIMEOUT
+.TQ
+.B MU2EDAQ_DISCOVERY_INTERVAL
+.TQ
+.B MU2EDAQ_DISCOVERY_BROADCAST
+.TQ
+.B MU2EDAQ_DISCOVERY_CONFIG
+Read by the front\-end commands, not by the library.
+.SH EXAMPLES
+See what answers on the local subnet:
+.EX
+    mu2edaq-discover
+.EE
+Probe one node directly, bypassing both multicast and broadcast, to prove the
+responder is alive:
+.EX
+    printf '{"proto":"mu2edaq-discovery/1","type":"DISCOVER","qid":"x"}' \\
+        | nc -u -w2 mu2e-dl-01.fnal.gov 28999
+.EE
+.SH SECURITY CONSIDERATIONS
+There is no authentication and no integrity protection.
+Any host on the subnet can send a DISCOVER and learn the full inventory of
+services, their ports, their process IDs and their uptimes, and any host can
+send a forged ANNOUNCE that a scan will display as real.
+The protocol is intended for the private DAQ VLAN only and must not be exposed
+to a routed or untrusted network.
+.SH NOTES
+Port 28999 was chosen to avoid every port already in use in the suite: 9999
+.RB ( heartbeatmonitor ),
+37020
+.RB ( bigredbox ),
+5555 and 5556 (dashboard ZMQ and trigger scalers), 9876
+.RB ( controlcenter ),
+7755
+.RB ( dataformat\-viewer ),
+and the 5000 to 8088 HTTP range.
+.PP
+The package is not published on PyPI.
+Naming
+.B mu2edaq\-discovery
+in a
+.I requirements.txt
+aborts the whole pip resolve; use
+.I mu2edaq-install-discovery.sh
+at the superproject root instead.
+.SH SEE ALSO
+.BR mu2edaq\-discover (1),
+.BR mu2edaq\-discover\-gui (1),
+.BR mu2edaq_discovery (3),
+.BR libmu2edaq_discovery (3),
+.BR discovery.yaml (5),
+.BR fnmatch (3)
+.SH AUTHOR
+Mu2e DAQ Group.
