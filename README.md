@@ -88,7 +88,7 @@ mu2edaq-discover-gui --auto --interval 15
   re-probe at an adjustable interval, expand/collapse all.
 
 The GUI takes the same options and configuration precedence as the CLI;
-see `man ./man/mu2edaq-discover-gui.1`. Stop a running instance with
+see `man ./man/man1/mu2edaq-discover-gui.1`. Stop a running instance with
 `./stop-mu2edaq-discover-gui.sh`.
 
 ### Why the query is broadcast as well as multicast
@@ -124,4 +124,43 @@ on 127.0.0.1 is unavailable.
 
 ## Man pages
 
-`man ./man/mu2edaq-discover.1`, `man ./man/mu2edaq-discover-gui.1`
+| Page | Covers |
+|---|---|
+| `man/man1/mu2edaq-discover.1` | the CLI |
+| `man/man1/mu2edaq-discover-gui.1` | the Qt browser |
+| `man/man3/mu2edaq_discovery.3` | the Python library (`Responder`, `discover()`) |
+| `man/man3/libmu2edaq_discovery.3` | the C++ responder library |
+| `man/man5/discovery.yaml.5` | the config file format |
+| `man/man7/mu2edaq-discovery.7` | the wire protocol and package overview |
+
+```bash
+man ./man/man1/mu2edaq-discover.1
+man ./man/man7/mu2edaq-discovery.7
+```
+
+## Documentation
+
+- [`doc/PROTOCOL.md`](doc/PROTOCOL.md) — normative wire specification
+- [`doc/INTERFACES.md`](doc/INTERFACES.md) — the reference other packages
+  link to: wire format, Python and C++ APIs, config schema, and how a
+  consumer package is expected to embed a responder
+- [`doc/ARCHITECTURE.md`](doc/ARCHITECTURE.md) — components, threading model,
+  data flow
+- [`doc/ISSUES-PENDING.md`](doc/ISSUES-PENDING.md) — September 2026 review
+  findings awaiting filing
+
+## Installing it from another package
+
+This package is **not on PyPI**. Naming `mu2edaq-discovery` in a
+`requirements.txt` aborts the whole pip resolve for that file, not just that
+line. Use the superproject script instead:
+
+```bash
+./mu2edaq-install-discovery.sh                        # into the active venv
+./mu2edaq-install-discovery.sh --build-wheel          # once, on a networked box
+./mu2edaq-install-discovery.sh --wheel-dir /mnt/wheels   # then, offline
+```
+
+Metadata lives in `setup.cfg`, not a PEP 621 `[project]` table, because the
+AlmaLinux 9 production platform builds venvs with setuptools 53 and PEP 621
+needs 61. See the header comment in `setup.cfg` before moving any of it.

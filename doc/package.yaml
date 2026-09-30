@@ -1,0 +1,203 @@
+schema: mega-review/1
+package: mu2edaq-discovery
+tier: A
+group: substrate
+repo:
+  url: git@github.com:Mu2e/mu2edaq-discovery.git
+  exists: true
+  issues_enabled: true
+doc_dir: doc
+summary: >
+  UDP multicast and broadcast service discovery for the Mu2e DAQ suite,
+  providing the Python library and CLI, a C++ responder mirror, and the
+  mu2edaq-discovery/1 wire protocol that sixteen sibling packages embed
+languages: [python, cpp]
+loc: 2922
+
+runtime:
+  executables:
+    - name: mu2edaq-discover
+      kind: cli
+      man_page: man/man1/mu2edaq-discover.1
+    - name: mu2edaq-discover-gui
+      kind: gui
+      man_page: man/man1/mu2edaq-discover-gui.1
+    - name: mu2edaq_discovery
+      kind: library
+      man_page: man/man3/mu2edaq_discovery.3
+    - name: libmu2edaq_discovery
+      kind: library
+      man_page: man/man3/libmu2edaq_discovery.3
+    # Repository-local helper scripts, not installed commands and not entry
+    # points. Documented in the FILES section of mu2edaq-discover-gui(1)
+    # rather than given their own man pages.
+    - name: bootstrap.sh
+      kind: script
+      waiver: "repo-local dev helper; not installed, no entry point in setup.cfg"
+    - name: start-mu2edaq-discover-gui.sh
+      kind: script
+      waiver: "repo-local launcher; documented in mu2edaq-discover-gui(1) FILES"
+    - name: stop-mu2edaq-discover-gui.sh
+      kind: script
+      waiver: "repo-local stopper; documented in mu2edaq-discover-gui(1) FILES"
+  services: []
+  ports:
+    - {port: 28999, proto: udp, role: discovery-multicast-and-broadcast, source: "src/mu2edaq_discovery/protocol.py:30"}
+  config_files: [config/discovery.yaml]
+  env_vars:
+    - MU2EDAQ_DISCOVERY_GROUP
+    - MU2EDAQ_DISCOVERY_PORT
+    - MU2EDAQ_DISCOVERY_TIMEOUT
+    - MU2EDAQ_DISCOVERY_INTERVAL
+    - MU2EDAQ_DISCOVERY_BROADCAST
+    - MU2EDAQ_DISCOVERY_CONFIG
+
+interactions:
+  # This package is the root of the suite's dependency graph: it depends on
+  # nothing inside mu2edaq-main and nothing outside the standard library at
+  # runtime. PyYAML and PyQt6/PySide6 are optional extras, used only by the
+  # --config path and the GUI respectively, and are listed under `external`.
+  depends_on: []
+  depended_on_by: []
+  external: [pyyaml, pyqt6]
+
+quality:
+  tests: {present: true, framework: pytest, count: 60}
+  ci: {present: false, workflows: []}
+  license: MIT
+  artifacts_clean: true
+
+notes:
+  doc_dir_rationale: >
+    doc/ already existed and holds the normative PROTOCOL.md, which is linked
+    from cpp/README.md, README.md and the trigger-scalers documentation. Not
+    renamed to docs/.
+  man_layout: >
+    The two pre-existing pages were flat in man/ and were git mv'd into
+    man/man1/. man3, man5 and man7 pages were added. Both console_scripts
+    entry points in setup.cfg:57 and setup.cfg:59 have a man1 page, and there
+    are no man pages without a corresponding entry point or documented
+    interface -- the CONTRACT's warning about orphan pages does not apply
+    here.
+  cpp_tests: >
+    Three ctest targets in cpp/CMakeLists.txt (json, invalid_json_numbers,
+    responder) are not counted in quality.tests.count, which is the pytest
+    number. The responder test signals a skip with return code 77.
+  issue_filing: >
+    One issue (#8, DISC-001) was created successfully; gh issue create, gh
+    issue edit and gh label create were then blocked by the session's
+    permission classifier. The remaining fifteen findings are staged in
+    doc/ISSUES-PENDING.md in the CONTRACT section 6 body format with
+    fingerprints, and #8 still carries a placeholder body that needs
+    replacing. Dedup was performed against all four pre-existing issues
+    (#4-#7, all closed, none carrying a mega-review fingerprint); DISC-005
+    and DISC-006 touch the same C++ file as closed #4 and #7 but describe
+    different defects and are cross-referenced rather than commented.
+  contradictions_with_review_brief: >
+    The brief stated that mu2edaq-trigger-scalers runs its discovery
+    responder as a Python sidecar under the system python3. That is not what
+    the source shows: trigger-scalers links the C++ Responder directly
+    (mu2edaq-trigger-scalers/CMakeLists.txt:85-90, :120 and src/main.cpp:91-108).
+    The system-python3 sidecar is real but belongs to
+    mu2edaq-controlroom-setup, whose start-vnc-session.sh:58 launches
+    vnc-discovery-responder.py under the bare python3. The deployment
+    constraint the brief describes is therefore correct and is documented in
+    INTERFACES.md section 5.5, but attributed to the right package.
+
+findings:
+  - id: DISC-001
+    severity: S2
+    type: bug
+    title: "[responder] an oversized ANNOUNCE kills the responder thread for the life of the process"
+    issue: "https://github.com/Mu2e/mu2edaq-discovery/issues/8"
+    fingerprint: 2f5b125d
+  - id: DISC-002
+    severity: S2
+    type: bug
+    title: "[responder] Python start() cannot report a socket failure; the C++ mirror can"
+    issue: pending
+    fingerprint: 09c093b6
+  - id: DISC-003
+    severity: S2
+    type: bug
+    title: "[protocol] the started field is regenerated per announcement, so it is not a start time"
+    issue: pending
+    fingerprint: 35690e38
+  - id: DISC-004
+    severity: S3
+    type: bug
+    title: "[responder] socket.getfqdn() is re-resolved on every announcement inside the responder thread"
+    issue: pending
+    fingerprint: c0f78fd4
+  - id: DISC-005
+    severity: S3
+    type: bug
+    title: "[cpp] the C++ responder answers malformed DISCOVER messages that the Python responder rejects"
+    issue: pending
+    fingerprint: e09d5d64
+  - id: DISC-006
+    severity: S3
+    type: bug
+    title: "[cpp] the C++ responder never checks its ANNOUNCE against the 1400-byte limit"
+    issue: pending
+    fingerprint: 85c68477
+  - id: DISC-007
+    severity: S3
+    type: enhancement
+    title: "[ci] 60 pytest tests and a ctest suite with no CI to run them"
+    issue: pending
+    fingerprint: 070e0f73
+  - id: DISC-008
+    severity: S3
+    type: bug
+    title: "[packaging] setup.cfg declares BSD-3-Clause but LICENSE is MIT"
+    issue: pending
+    fingerprint: 2d6fec64
+  - id: DISC-009
+    severity: S4
+    type: enhancement
+    title: "[responder] the reply jitter sleeps inline, capping a responder at about four queries a second"
+    issue: pending
+    fingerprint: 199784c7
+  - id: DISC-010
+    severity: S4
+    type: bug
+    title: "[responder] stop() raises RuntimeError when the responder was never started"
+    issue: pending
+    fingerprint: e7ebbf36
+  - id: DISC-011
+    severity: S4
+    type: documentation
+    title: "[docs] the protocol specification does not state that mu2edaq-discovery is IPv4-only"
+    issue: pending
+    fingerprint: adbaae7a
+  - id: DISC-012
+    severity: S4
+    type: bug
+    title: "[cpp] the C++ project version is pinned at 1.0.0 while the Python package is 1.1.0"
+    issue: pending
+    fingerprint: eebe06f1
+  - id: DISC-013
+    severity: S4
+    type: bug
+    title: "[cli] --timeout 0 silently waits two seconds because options are resolved with an or chain"
+    issue: pending
+    fingerprint: 56e94ea1
+  - id: DISC-014
+    severity: S4
+    type: documentation
+    title: "[docs] README points at man/mu2edaq-discover.1 but the pages now live in man/man1/"
+    issue: pending
+    fingerprint: c70b55e8
+  - id: DISC-015
+    severity: S3
+    type: enhancement
+    title: "[protocol] the wire format is implemented four times with no generator or conformance test"
+    issue: pending
+    fingerprint: f36464fd
+  - id: DISC-016
+    severity: S3
+    type: bug
+    title: "[packaging] mu2edaq-bigredbox names mu2edaq-discovery in requirements.txt, which aborts the whole pip resolve"
+    issue: pending
+    fingerprint: b7cc489a
