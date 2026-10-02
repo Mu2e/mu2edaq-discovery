@@ -1,0 +1,198 @@
+.TH LIBMU2EDAQ_DISCOVERY 3 "2026-09-30" "mu2edaq-discovery 1.1.0" "Mu2e DAQ Manual"
+.SH NAME
+libmu2edaq_discovery \- C++17 Responder for Mu2e DAQ service discovery
+.SH SYNOPSIS
+.EX
+#include <mu2edaq_discovery/Responder.hpp>
+
+namespace mu2edaq_discovery {
+    constexpr const char* PROTO = "mu2edaq-discovery/1";
+    constexpr const char* GROUP = "239.255.42.99";
+    constexpr int PORT = 28999;
+    constexpr int MAX_DATAGRAM = 1400;
+
+    class Responder {
+    public:
+        struct Options {
+            std::string name, app;
+            int port = 0;
+            std::string scheme, version = "0";
+            std::map<std::string, std::string> meta;
+            std::string host, group = GROUP;
+            int listen_port = PORT;
+            int announce_interval = 0;
+            std::string bind_interface = "0.0.0.0";
+        };
+        explicit Responder(Options opts);
+        ~Responder();
+        void start();
+        void stop();
+        const std::string& instance_id() const;
+    };
+}
+.EE
+Link with
+.BR mu2edaq_discovery::mu2edaq_discovery .
+.SH DESCRIPTION
+The C++ half of
+.B mu2edaq\-discovery
+is a responder only.
+There is no C++ client; discovery scans are run from
+.BR mu2edaq\-discover (1).
+It exists so that C++ DAQ applications appear in the same scans as the Python
+ones, and it speaks the identical wire protocol
+.RB ( mu2edaq\-discovery (7)).
+.PP
+The library is dependency\-free: C++17 standard library plus POSIX sockets,
+with a small internal JSON parser and serializer in
+.IR Json.hpp .
+Linux and macOS are supported; Windows would need a Winsock backend and does
+not have one.
+The only link dependency is
+.BR Threads::Threads .
+.PP
+.B Responder
+is neither copyable nor assignable.
+The constructor fills defaults:
+.I scheme
+from
+.IR app ,
+.I host
+from the resolved canonical FQDN, and
+.I bind_interface
+from
+.BR 0.0.0.0 .
+It generates the instance UUID and the
+.B started
+timestamp once, so both stay fixed for the lifetime of the object.
+.SS start()
+Creates the socket, sets
+.B SO_REUSEADDR
+and
+.BR SO_REUSEPORT ,
+binds
+.I listen_port
+on
+.BR INADDR_ANY ,
+joins the multicast group, sets a 0.5 s
+.BR SO_RCVTIMEO ,
+and then spawns the responder thread.
+All of that happens on the
+.I calling
+thread, so a bind or membership failure throws
+.B std::system_error
+to the caller before any thread exists.
+This differs from the Python
+.BR Responder ,
+whose
+.B start()
+cannot report such a failure.
+.SS stop()
+Sets the atomic stop flag, sends a zero\-length datagram to
+.BI 127.0.0.1: listen_port
+to break the blocking
+.BR recvfrom (2),
+joins the thread and closes the socket.
+Safe to call more than once, and called from the destructor.
+.SS Behaviour on the wire
+The responder answers a DISCOVER whose
+.B proto
+and
+.B type
+match, applying
+.I filter
+keys
+.BR app ", " name " and " host
+with
+.BR fnmatch (3).
+A reply is delayed by a uniform random 0 to 250 ms and is sent unicast to the
+datagram's source.
+Malformed datagrams are caught and ignored.
+.SH FILES
+.TP
+.I cpp/include/mu2edaq_discovery/Responder.hpp
+Public API.
+.TP
+.I cpp/include/mu2edaq_discovery/Json.hpp
+Header\-only minimal JSON.
+.TP
+.I cpp/src/Responder.cpp
+Implementation.
+.TP
+.I cpp/CMakeLists.txt
+Builds the static library, the demo and the ctest suite.
+.TP
+.I cpp/examples/responder_demo.cpp
+A standalone responder for interop testing against the Python client.
+.SH ENVIRONMENT
+None.
+All configuration is through
+.BR Responder::Options .
+.SH EXAMPLES
+Consume via CMake
+.BR FetchContent ,
+as
+.B mu2edaq\-trigger\-scalers
+does:
+.EX
+    include(FetchContent)
+    FetchContent_Declare(mu2edaq_discovery
+        GIT_REPOSITORY https://github.com/Mu2e/mu2edaq-discovery.git
+        GIT_TAG main
+        SOURCE_SUBDIR cpp)
+    FetchContent_MakeAvailable(mu2edaq_discovery)
+    target_link_libraries(your_app PRIVATE
+        mu2edaq_discovery::mu2edaq_discovery)
+.EE
+Advertise a service, tolerating a discovery failure:
+.EX
+    mu2edaq_discovery::Responder::Options opt;
+    opt.name   = "Trigger Scalers";
+    opt.app    = "trigger-scalers";
+    opt.port   = 5557;
+    opt.scheme = "udp";
+    mu2edaq_discovery::Responder responder(opt);
+    try {
+        responder.start();
+    } catch (const std::exception& e) {
+        std::cerr << "[Discovery] not started: " << e.what() << "\\n";
+    }
+    int rc = app.exec();
+    responder.stop();
+.EE
+Run the demo and scan it from Python:
+.EX
+    cmake -S cpp -B cpp/build && cmake --build cpp/build
+    ./cpp/build/responder_demo --app demo --port 5557 --seconds 30 &
+    mu2edaq-discover --filter app=demo
+.EE
+.SH NOTES
+Start the responder only after the service's own socket is bound, so discovery
+never advertises a port that is not accepting connections.
+.PP
+The C++ responder does not enforce
+.B MAX_DATAGRAM
+on the ANNOUNCE it builds, and it does not reject a DISCOVER whose
+.B filter
+is not an object, whose filter values are not strings, or that names a filter
+key outside
+.BR app / name / host .
+The Python responder rejects all of those and stays silent.
+The two therefore answer a different set of malformed queries.
+.PP
+The
+.B build_announce
+field order differs from Python's for the
+.B qid
+key: C++ appends it after
+.BR started ,
+Python inserts it after
+.BR pid .
+JSON object order is not significant, so this is cosmetic.
+.SH SEE ALSO
+.BR mu2edaq\-discover (1),
+.BR mu2edaq_discovery (3),
+.BR mu2edaq\-discovery (7),
+.BR fnmatch (3)
+.SH AUTHOR
+Mu2e DAQ Group.

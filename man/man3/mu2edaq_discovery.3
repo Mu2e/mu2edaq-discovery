@@ -1,0 +1,243 @@
+.TH MU2EDAQ_DISCOVERY 3 "2026-09-30" "mu2edaq-discovery 1.1.0" "Mu2e DAQ Manual"
+.SH NAME
+mu2edaq_discovery \- Python library for Mu2e DAQ service discovery
+.SH SYNOPSIS
+.EX
+from mu2edaq_discovery import Responder, discover, protocol
+
+r = Responder(name, app, port, scheme=None, version=None, meta=None,
+              host=None, group=protocol.GROUP, listen_port=protocol.PORT,
+              announce_interval=0, bind_interface=None)
+r.start()
+r.stop(timeout=2.0)
+
+services = discover(filter=None, timeout=2.0, retries=2,
+                    group=protocol.GROUP, port=protocol.PORT,
+                    interface=None, broadcast=True)
+.EE
+.SH DESCRIPTION
+.B mu2edaq_discovery
+implements the
+.B mu2edaq\-discovery/1
+wire protocol described in
+.BR mu2edaq\-discovery (7).
+It is stdlib\-only and targets Python 3.9, so it imports under the AlmaLinux 9
+system interpreter with no virtualenv and no third\-party packages.
+.PP
+The module has two halves.
+A service embeds a
+.B Responder
+so it can be found; an operator tool calls
+.B discover()
+to find services.
+.SS Responder
+.B Responder
+is a subclass of
+.BR threading.Thread ,
+constructed as a daemon thread named
+.BR mu2edaq\-discovery\-responder .
+It binds UDP
+.I listen_port
+on
+.BR 0.0.0.0 ,
+joins the multicast group on
+.IR bind_interface ,
+and answers every DISCOVER whose filter it matches with a unicast ANNOUNCE
+sent back to the datagram's source address and port, after a uniform random
+delay of 0 to 250 ms
+.RB ( Responder.JITTER_MAX )
+that spreads a fleet's replies.
+.TP
+.I name
+Human\-readable label, shown in the
+.B NAME
+column.
+.TP
+.I app
+Short class identifier.
+Instances sharing an
+.I app
+are grouped in the GUI, and
+.B \-\-filter\ app=
+selects them.
+.TP
+.I port
+The service's own listening port, as an integer.
+This is the port the announcement advertises, not the discovery port.
+.TP
+.I scheme
+URL scheme hint
+.RB ( http ,
+.BR vnc ,
+.BR tcp ,
+.BR udp ).
+Defaults to
+.IR app .
+.TP
+.I version
+Free\-form version string.
+Defaults to
+.BR "0" .
+.TP
+.I meta
+A mapping of string keys to string values for application\-specific detail.
+The GUI renders each as a
+.BI meta. key
+column.
+Both keys and values must be strings or the receiving side rejects the
+message.
+.TP
+.I host
+Advertised hostname.
+Defaults to
+.BR socket.getfqdn() ,
+re\-resolved on every announcement.
+.TP
+.I announce_interval
+Seconds between unsolicited ANNOUNCE multicasts.
+Zero, the default, means the responder answers queries only.
+.TP
+.I bind_interface
+Local IPv4 address used for the multicast group membership and as
+.BR IP_MULTICAST_IF .
+Defaults to
+.BR 0.0.0.0 .
+.PP
+.B start()
+returns immediately; the socket is opened on the responder thread, so a bind
+or membership failure does not reach the caller and leaves a dead thread
+behind.
+Poll
+.B is_alive()
+if that matters.
+.B stop()
+sets the stop event, sends a zero\-length datagram to
+.BI 127.0.0.1: listen_port
+to break the 0.5 s
+.BR recvfrom (2)
+timeout, and joins with
+.IR timeout .
+Calling
+.B stop()
+on a responder that was never started raises
+.BR RuntimeError .
+.SS discover
+.B discover()
+sends one DISCOVER to the multicast group and, unless
+.I broadcast
+is false or empty, the same datagram to each named broadcast address.
+It transmits
+.I retries
+times spread across the
+.I timeout
+window, collects ANNOUNCE datagrams until
+.I timeout
+seconds have elapsed in total, discards replies carrying a
+.B qid
+that is not this query's, deduplicates by the responder's stable
+.BR id ,
+and returns a list of message dicts sorted by
+.RI ( host ", " port ).
+.PP
+.I broadcast
+accepts
+.BR True ,
+.BR False ,
+a list of addresses, or a string:
+.BR on / yes / true / default
+for the limited broadcast,
+.BR off / no / false / none
+for none, or addresses separated by commas or whitespace.
+.B parse_broadcast_setting()
+is the single normaliser the CLI, the GUI, the environment and the API all
+share.
+.SS protocol
+The
+.B protocol
+submodule holds the constants
+.RB ( PROTO ,
+.BR GROUP ,
+.BR PORT ,
+.BR BROADCAST ,
+.BR MAX_DATAGRAM ,
+.BR FILTER_KEYS )
+and the message builders and validators
+.RB ( build_query ,
+.BR build_announce ,
+.BR encode ,
+.BR decode ,
+.BR matches_filter ).
+.B encode()
+and
+.B decode()
+both raise
+.BR protocol.ProtocolError ,
+a subclass of
+.BR ValueError ,
+on an oversize or malformed message.
+.SH FILES
+.TP
+.I src/mu2edaq_discovery/protocol.py
+Constants, builders and validators.
+.TP
+.I src/mu2edaq_discovery/responder.py
+.BR Responder .
+.TP
+.I src/mu2edaq_discovery/client.py
+.B discover()
+and
+.BR parse_broadcast_setting() .
+.SH ENVIRONMENT
+The library itself reads no environment variables; the
+.BR mu2edaq\-discover (1)
+and
+.BR mu2edaq\-discover\-gui (1)
+front ends read the
+.B MU2EDAQ_DISCOVERY_*
+set.
+.SH EXAMPLES
+Advertise a Flask dashboard after its socket is bound:
+.EX
+    from mu2edaq_discovery import Responder
+
+    responder = Responder(name="Mu2e DAQ Dashboard", app="dashboard",
+                          port=5001, scheme="http",
+                          meta={"zmq_port": "5555"})
+    responder.start()
+    try:
+        app.run(host="0.0.0.0", port=5001)
+    finally:
+        responder.stop()
+.EE
+Find every VNC session on the subnet:
+.EX
+    from mu2edaq_discovery import discover
+
+    for s in discover(filter={"app": "vnc"}, timeout=2.0):
+        print(s["host"], s["port"], s["meta"].get("display"))
+.EE
+Multicast only, for diagnosing IGMP snooping:
+.EX
+    discover(broadcast=False)
+.EE
+.SH NOTES
+The
+.I meta
+map counts against the 1400\-byte datagram limit, and the limit is checked on
+the serialized message.
+A responder whose ANNOUNCE crosses it raises inside the responder thread on
+the first query and stops answering for the life of the process.
+.PP
+IPv4 only.
+The sockets are
+.BR AF_INET ,
+the group membership is
+.BR ip_mreq ,
+and there is no IPv6 path.
+.SH SEE ALSO
+.BR mu2edaq\-discover (1),
+.BR mu2edaq\-discover\-gui (1),
+.BR discovery.yaml (5),
+.BR mu2edaq\-discovery (7)
+.SH AUTHOR
+Mu2e DAQ Group.

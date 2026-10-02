@@ -1,4 +1,4 @@
-.TH MU2EDAQ\-DISCOVER 1 "2026-09-14" "Mu2e DAQ" "Mu2e DAQ Manual"
+.TH MU2EDAQ\-DISCOVER 1 "2026-09-30" "mu2edaq-discovery 1.1.0" "Mu2e DAQ Manual"
 .SH NAME
 mu2edaq\-discover \- query the network for running Mu2e DAQ services
 .SH SYNOPSIS
@@ -84,21 +84,68 @@ Requires PyYAML.
 .TP
 .B \-\-json
 Print results as a JSON array instead of a table.
-.SH CONFIGURATION PRECEDENCE
-Command line options override the environment variables
-.BR MU2EDAQ_DISCOVERY_GROUP ,
-.BR MU2EDAQ_DISCOVERY_PORT ,
-.BR MU2EDAQ_DISCOVERY_TIMEOUT ,
-and
-.B MU2EDAQ_DISCOVERY_BROADCAST
-(addresses separated by commas or spaces, or
-.B off
-for multicast only),
-which override the config file
-.RB ( \-\-config
+.SH FILES
+.TP
+.I config/discovery.yaml
+The packaged default configuration, shown as an example of the
+.B discovery:
+section.
+Nothing is read from a fixed path: a config file is used only when named by
+.B \-\-config
 or
-.BR MU2EDAQ_DISCOVERY_CONFIG ),
-which overrides built-in defaults.
+.BR MU2EDAQ_DISCOVERY_CONFIG .
+.TP
+.I mu2edaq-config/config-main/mu2edaq-discovery/discovery.yaml
+The deployed copy in the
+.B mu2edaq\-config
+submodule, if that is what the site points
+.B \-\-config
+at.
+.SH ENVIRONMENT
+Command line options override these; they in turn override the config file,
+which overrides the built-in defaults.
+.TP
+.B MU2EDAQ_DISCOVERY_GROUP
+Multicast group.
+Default 239.255.42.99.
+.TP
+.B MU2EDAQ_DISCOVERY_PORT
+UDP port.
+Default 28999.
+.TP
+.B MU2EDAQ_DISCOVERY_TIMEOUT
+Seconds to wait for replies.
+Default 2.0.
+.TP
+.B MU2EDAQ_DISCOVERY_BROADCAST
+Broadcast destinations: addresses separated by commas or spaces,
+.BR on / yes / true / default
+for the limited broadcast, or
+.BR off / no / false / none
+for multicast only.
+.TP
+.B MU2EDAQ_DISCOVERY_CONFIG
+Default value of
+.BR \-\-config .
+.PP
+.B MU2EDAQ_DISCOVERY_INTERVAL
+is read only by
+.BR mu2edaq\-discover\-gui (1),
+not by this command.
+.SH EXIT STATUS
+.TP
+.B 0
+Success, including a scan that found nothing.
+.TP
+.B 1
+Invalid
+.B \-\-filter
+syntax, an unreadable config file, PyYAML missing while
+.B \-\-config
+was given, or a protocol error while building the query.
+.TP
+.B 2
+Invalid command line, from the argument parser.
 .SH EXAMPLES
 List everything on the local network segment:
 .EX
@@ -121,16 +168,25 @@ From off-site (multicast does not traverse the gateway):
     ssh \-J mu2egateway01.fnal.gov mu2edaq@mu2e\-dl\-01.fnal.gov \\
         mu2edaq\-discover \-\-json
 .EE
-.SH EXIT STATUS
-0 on success (including zero results); non-zero on invalid arguments or
-protocol errors.
+.SH NOTES
+.B \-\-timeout 0
+does not mean "no wait": the value is resolved with an
+.B or
+chain, so a zero is falsy and the built-in 2.0 s default is used instead.
+The same applies to
+.BR \-\-port\ 0 .
 .SH SEE ALSO
-.BR mu2edaq\-bootstrap (1)
+.BR mu2edaq\-discover\-gui (1),
+.BR mu2edaq_discovery (3),
+.BR discovery.yaml (5),
+.BR mu2edaq\-discovery (7)
 .PP
 Protocol specification:
 .B doc/PROTOCOL.md
 in the mu2edaq\-discovery repository.
-.SH REPOSITORY
+Repository:
 .UR https://github.com/Mu2e/mu2edaq-discovery
 https://github.com/Mu2e/mu2edaq-discovery
 .UE
+.SH AUTHOR
+Mu2e DAQ Group.
