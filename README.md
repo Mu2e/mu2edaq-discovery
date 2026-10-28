@@ -64,9 +64,9 @@ defaults.
 A lightweight Qt browser for discoverable resources:
 
 ```bash
-./start-mu2edaq-discover-gui.sh        # sets up venv/ (with PyQt6) and launches
+./start-mu2edaq-discover-gui.sh        # sets up venv/ (PyQt6, PyYAML) and launches
 # or, in an existing environment:
-pip install -e '.[gui]'
+pip install -e '.[gui,yaml]'          # yaml: needed for --config
 mu2edaq-discover-gui --auto --interval 15
 ```
 

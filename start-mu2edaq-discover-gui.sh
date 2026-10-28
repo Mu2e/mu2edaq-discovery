@@ -11,6 +11,8 @@ if [ ! -d venv ]; then
 fi
 
 venv/bin/python -m pip install --quiet --upgrade pip
-venv/bin/python -m pip install --quiet -e '.[gui]'
+# yaml as well as gui: --config (and config/discovery.yaml) needs PyYAML,
+# and bootstrap.sh installs it too.
+venv/bin/python -m pip install --quiet -e '.[gui,yaml]'
 
 exec venv/bin/python -m mu2edaq_discovery.gui "$@"
